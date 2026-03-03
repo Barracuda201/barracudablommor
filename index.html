@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <title>Bildigenkänning - Elliot NA24C</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-weight: bold;
+        }
+
+        .container {
+            margin-top: 80px;
+        }
+
+        .status {
+            margin: 20px auto;
+            padding: 10px;
+            width: 300px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .loaded {
+            background-color: #c8f7c5;
+            color: green;
+        }
+
+        .not-loaded {
+            background-color: #f7c5c5;
+            color: darkred;
+        }
+
+        #preview {
+            margin-top: 20px;
+            max-width: 300px;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    Elliot NA24C
+</div>
+
+<div class="container">
+    <h1>Bildigenkänningsmodell</h1>
+
+    <div id="modelStatus" class="status not-loaded">
+        Modell laddas...
+    </div>
+
+    <input type="file" id="imageUpload" accept="image/*">
+    <br>
+    <img id="preview" />
+    <br>
+    <button onclick="predict()">Analysera bild</button>
+
+    <div id="result"></div>
+</div>
+
+<script>
+    let model;
+
+    async function loadModel() {
+        try {
+            model = await tf.loadLayersModel('tfjs_model/model.json');
+            document.getElementById("modelStatus").innerText = "✅ Modell laddad!";
+            document.getElementById("modelStatus").classList.remove("not-loaded");
+            document.getElementById("modelStatus").classList.add("loaded");
+        } catch (error) {
+            document.getElementById("modelStatus").innerText = "❌ Kunde inte ladda modellen.";
+            console.error(error);
+        }
+    }
+
+    loadModel();
+
+    document.getElementById("imageUpload").addEventListener("change", function(event) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            const img = document.getElementById("preview");
+            img.src = reader.result;
+        }
+        reader.readAsDataURL(event.target.files[0]);
+    });
+
+    async function predict() {
+        if (!model) {
+            alert("Modellen är inte laddad ännu!");
+            return;
+        }
+
+        const img = document.getElementById("preview");
+
+        let tensor = tf.browser.fromPixels(img)
+            .resizeNearestNeighbor([224, 224])  // Ändra om din modell kräver annan storlek
+            .toFloat()
+            .div(255.0)
+            .expandDims();
+
+        const prediction = model.predict(tensor);
+        const data = await prediction.data();
+
+        let highestProb = Math.max(...data);
+        let classIndex = data.indexOf(highestProb);
+
+        document.getElementById("result").innerHTML =
+            "Förutsägelse klass: <b>" + classIndex +
+            "</b><br>Säkerhet: <b>" + (highestProb * 100).toFixed(2) + "%</b>";
+    }
+</script>
+
+</body>
+</html>
