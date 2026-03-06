@@ -1,137 +1,160 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <title>Bildigenkänning - Elliot NA24C</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-        }
+<meta charset="UTF-8">
+<title>Bildigenkänningsmodell</title>
 
-        .header {
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            font-weight: bold;
-        }
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
 
-        .container {
-            margin-top: 80px;
-        }
+<style>
 
-        .status {
-            margin: 20px auto;
-            padding: 10px;
-            width: 300px;
-            border-radius: 8px;
-            font-weight: bold;
-        }
+body{
+font-family: Arial;
+background:#f4f4f4;
+text-align:center;
+}
 
-        .loaded {
-            background-color: #c8f7c5;
-            color: green;
-        }
+#name{
+position:absolute;
+top:10px;
+right:20px;
+font-weight:bold;
+}
 
-        .not-loaded {
-            background-color: #f7c5c5;
-            color: darkred;
-        }
+#status{
+margin:20px auto;
+padding:12px;
+width:320px;
+border-radius:8px;
+font-weight:bold;
+}
 
-        #preview {
-            margin-top: 20px;
-            max-width: 300px;
-        }
+.loading{
+background:#ffeaa7;
+}
 
-        #result {
-            margin-top: 20px;
-            font-size: 18px;
-        }
+.error{
+background:#fab1a0;
+}
 
-        button {
-            margin-top: 15px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-    </style>
+.success{
+background:#b8f5b1;
+}
+
+img{
+max-width:300px;
+margin-top:20px;
+}
+
+button{
+padding:10px 20px;
+font-size:16px;
+margin-top:15px;
+}
+
+</style>
 </head>
+
 <body>
 
-<div class="header">
-    Elliot NA24C
+<div id="name">Elliot NA24C</div>
+
+<h1>Bildigenkänningsmodell</h1>
+
+<div id="status" class="loading">
+Laddar modell...
 </div>
 
-<div class="container">
-    <h1>Bildigenkänningsmodell</h1>
+<input type="file" id="imageInput" accept="image/*">
+<br>
 
-    <div id="modelStatus" class="status not-loaded">
-        Modell laddas...
-    </div>
+<img id="preview">
 
-    <input type="file" id="imageUpload" accept="image/*">
-    <br>
-    <img id="preview" />
-    <br>
-    <button onclick="predict()">Analysera bild</button>
+<br>
 
-    <div id="result"></div>
-</div>
+<button onclick="analyzeImage()">Analysera bild</button>
+
+<div id="result"></div>
+
 
 <script>
-    let model;
 
-    async function loadModel() {
-        try {
-            model = await tf.loadLayersModel('tfjs_model/model.json');
-            document.getElementById("modelStatus").innerText = "✅ Modell laddad!";
-            document.getElementById("modelStatus").classList.remove("not-loaded");
-            document.getElementById("modelStatus").classList.add("loaded");
-        } catch (error) {
-            document.getElementById("modelStatus").innerText = "❌ Kunde inte ladda modellen.";
-            console.error(error);
-        }
-    }
+let model;
 
-    loadModel();
+async function loadModel(){
 
-    document.getElementById("imageUpload").addEventListener("change", function(event) {
-        const reader = new FileReader();
-        reader.onload = function() {
-            const img = document.getElementById("preview");
-            img.src = reader.result;
-        }
-        reader.readAsDataURL(event.target.files[0]);
-    });
+try{
 
-    async function predict() {
-        if (!model) {
-            alert("Modellen är inte laddad ännu!");
-            return;
-        }
+model = await tf.loadLayersModel("./tfjs_model/model.json");
 
-        const img = document.getElementById("preview");
+document.getElementById("status").innerText = "✅ Modell laddad!";
+document.getElementById("status").className = "success";
 
-        let tensor = tf.browser.fromPixels(img)
-            .resizeNearestNeighbor([224, 224])  // Ändra om din modell kräver annan storlek
-            .toFloat()
-            .div(255.0)
-            .expandDims();
+console.log("Model loaded successfully");
 
-        const prediction = model.predict(tensor);
-        const data = await prediction.data();
+}catch(error){
 
-        let highestProb = Math.max(...data);
-        let classIndex = data.indexOf(highestProb);
+document.getElementById("status").innerText = "❌ Kunde inte ladda modellen";
+document.getElementById("status").className = "error";
 
-        document.getElementById("result").innerHTML =
-            "Förutsägelse klass: <b>" + classIndex +
-            "</b><br>Säkerhet: <b>" + (highestProb * 100).toFixed(2) + "%</b>";
-    }
+console.error("Model loading error:", error);
+
+}
+
+}
+
+loadModel();
+
+
+
+document.getElementById("imageInput").addEventListener("change", function(event){
+
+const file = event.target.files[0];
+
+if(!file) return;
+
+const reader = new FileReader();
+
+reader.onload = function(e){
+
+const img = document.getElementById("preview");
+img.src = e.target.result;
+
+}
+
+reader.readAsDataURL(file);
+
+});
+
+
+
+async function analyzeImage(){
+
+if(!model){
+alert("Modellen är inte laddad ännu!");
+return;
+}
+
+const img = document.getElementById("preview");
+
+let tensor = tf.browser.fromPixels(img)
+.resizeNearestNeighbor([224,224])
+.toFloat()
+.div(255)
+.expandDims();
+
+let prediction = model.predict(tensor);
+
+let data = await prediction.data();
+
+let max = Math.max(...data);
+let index = data.indexOf(max);
+
+document.getElementById("result").innerHTML =
+"<h3>Resultat</h3>Klass: "+index+"<br>Säkerhet: "+(max*100).toFixed(2)+"%";
+
+}
+
 </script>
 
 </body>
